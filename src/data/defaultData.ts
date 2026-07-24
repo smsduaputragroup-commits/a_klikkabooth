@@ -402,7 +402,7 @@ function handleSyncAll(ss, data) {
   var logSheet = getOrCreateSheet(ss, "Logs");
   
   // Save Booths
-  if (data.booths && data.booths.length > 0) {
+  if (data.booths) {
     boothSheet.clear();
     boothSheet.appendRow(["id", "name", "code", "currentNumber", "totalTickets", "status", "avgTimePerSession", "themeColor"]);
     data.booths.forEach(function(b) {
@@ -410,8 +410,8 @@ function handleSyncAll(ss, data) {
     });
   }
   
-  // Save Tickets
-  if (data.tickets && data.tickets.length > 0) {
+  // Save Tickets (clear sheet even if data.tickets is empty [])
+  if (data.tickets) {
     ticketSheet.clear();
     ticketSheet.appendRow(["id", "boothId", "boothName", "boothCode", "ticketNumber", "sequence", "status", "createdAt", "calledAt", "completedAt"]);
     data.tickets.forEach(function(t) {
@@ -419,11 +419,10 @@ function handleSyncAll(ss, data) {
     });
   }
   
-  // Save Logs
-  if (data.logs && data.logs.length > 0) {
-    if (logSheet.getLastRow() <= 1) {
-      logSheet.appendRow(["id", "timestamp", "date", "action", "details", "boothName", "ticketNumber"]);
-    }
+  // Save Logs (clear sheet even if data.logs is empty [])
+  if (data.logs) {
+    logSheet.clear();
+    logSheet.appendRow(["id", "timestamp", "date", "action", "details", "boothName", "ticketNumber"]);
     data.logs.forEach(function(l) {
       logSheet.appendRow([l.id, l.timestamp, l.date, l.action, l.details, l.boothName || "", l.ticketNumber || ""]);
     });

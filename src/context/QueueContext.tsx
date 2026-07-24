@@ -176,15 +176,21 @@ export const QueueProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
     const pollAppsScript = async () => {
       const res = await fetchFromGoogleAppsScript(appsScriptConfig);
-      if (res.success && res.tickets && res.tickets.length > 0) {
-        setTickets((prev) => {
-          if (JSON.stringify(prev) !== JSON.stringify(res.tickets)) {
-            localStorage.setItem(LOCAL_STORAGE_KEY_TICKETS, JSON.stringify(res.tickets));
-            return res.tickets;
+      if (res.success) {
+        if (Array.isArray(res.tickets)) {
+          setTickets((prev) => {
+            if (JSON.stringify(prev) !== JSON.stringify(res.tickets)) {
+              localStorage.setItem(LOCAL_STORAGE_KEY_TICKETS, JSON.stringify(res.tickets));
+              return res.tickets;
+            }
+            return prev;
+          });
+          if (res.tickets.length === 0) {
+            setLastCalledTicket(null);
+            localStorage.removeItem('photobooth_last_called_ticket');
           }
-          return prev;
-        });
-        if (res.booths && res.booths.length > 0) {
+        }
+        if (Array.isArray(res.booths) && res.booths.length > 0) {
           setBooths((prev) => {
             if (JSON.stringify(prev) !== JSON.stringify(res.booths)) {
               localStorage.setItem(LOCAL_STORAGE_KEY_BOOTHS, JSON.stringify(res.booths));
