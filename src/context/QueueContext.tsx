@@ -148,15 +148,20 @@ export const QueueProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     }
   }, [soundEnabled]);
 
-  // Read URL params on load to detect customer direct link e.g. ?ticket=VIN001 or ?view=customer
+  // Read URL params on load to detect customer direct link e.g. ?ticket=VIN001 or ?view=customer or #admin
   useEffect(() => {
     const handleUrlChange = () => {
       if (typeof window === 'undefined') return;
       
       const searchParams = new URLSearchParams(window.location.search);
-      const hashParams = new URLSearchParams(window.location.hash.replace(/^#\/?/, ''));
+      const rawHash = window.location.hash.replace(/^#\/?/, '').trim().toLowerCase();
+      const hashParams = new URLSearchParams(rawHash);
 
-      const viewParam = (searchParams.get('view') || hashParams.get('view')) as ActiveTab | null;
+      let viewParam = (searchParams.get('view') || hashParams.get('view')) as ActiveTab | null;
+      if (!viewParam && ['admin', 'monitor', 'customer', 'script-guide'].includes(rawHash)) {
+        viewParam = rawHash as ActiveTab;
+      }
+
       const ticketParam =
         searchParams.get('ticket') ||
         searchParams.get('t') ||

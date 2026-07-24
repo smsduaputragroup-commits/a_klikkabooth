@@ -7,7 +7,7 @@ import { GoogleScriptGuide } from './components/GoogleScriptGuide';
 import { LayoutDashboard, Tv, UserCheck, Code2 } from 'lucide-react';
 
 const MainContent: React.FC = () => {
-  const { activeTab, setActiveTab } = useQueue();
+  const { activeTab, setActiveTab, isAdminLoggedIn } = useQueue();
 
   const isPublicDashboard = activeTab === 'customer' || activeTab === 'monitor';
   const isMonitorMode = activeTab === 'monitor';
@@ -17,17 +17,19 @@ const MainContent: React.FC = () => {
       <div className="min-h-screen w-full bg-slate-950 text-slate-100 font-sans selection:bg-red-600 selection:text-white relative flex flex-col">
         <MonitorDashboard />
 
-        {/* Discrete Admin Return Button for TV Screen */}
-        <div className="fixed bottom-3 right-3 z-50 print:hidden opacity-30 hover:opacity-100 transition-opacity">
-          <button
-            onClick={() => setActiveTab('admin')}
-            className="bg-slate-900/90 hover:bg-slate-900 text-slate-300 hover:text-white text-xs font-bold px-3 py-1.5 rounded-full backdrop-blur-md shadow-2xl border border-slate-700/80 flex items-center gap-1.5 transition-all"
-            title="Kembali ke Dashboard Admin"
-          >
-            <LayoutDashboard className="w-3.5 h-3.5 text-red-400" />
-            <span>Ke Admin</span>
-          </button>
-        </div>
+        {/* Return Button for Logged In Admin Only */}
+        {isAdminLoggedIn && (
+          <div className="fixed bottom-3 right-3 z-50 print:hidden opacity-40 hover:opacity-100 transition-opacity">
+            <button
+              onClick={() => setActiveTab('admin')}
+              className="bg-slate-900/90 hover:bg-slate-900 text-slate-300 hover:text-white text-xs font-bold px-3 py-1.5 rounded-full backdrop-blur-md shadow-2xl border border-slate-700/80 flex items-center gap-1.5 transition-all"
+              title="Kembali ke Dashboard Admin"
+            >
+              <LayoutDashboard className="w-3.5 h-3.5 text-red-400" />
+              <span>Ke Admin</span>
+            </button>
+          </div>
+        )}
       </div>
     );
   }
@@ -42,8 +44,8 @@ const MainContent: React.FC = () => {
         </main>
       </div>
 
-      {/* Discrete Admin Return Button for Customer View */}
-      {isPublicDashboard && (
+      {/* Return Button for Logged In Admin Only on Customer View */}
+      {isPublicDashboard && isAdminLoggedIn && (
         <div className="fixed bottom-3 right-3 z-40 print:hidden">
           <button
             onClick={() => setActiveTab('admin')}
