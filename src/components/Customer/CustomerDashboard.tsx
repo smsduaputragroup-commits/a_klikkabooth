@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useQueue } from '../../context/QueueContext';
-import { Bell, Volume2, Clock, Search, QrCode, RefreshCw, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Bell, Volume2, Clock, Search, QrCode, Sparkles, CheckCircle2 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { playChimeSound } from '../../utils/audio';
+import { playChimeSound, announceQueueVoice } from '../../utils/audio';
 
 export const CustomerDashboard: React.FC = () => {
   const { tickets, booths, selectedTicketForCustomer, setSelectedTicketForCustomer } = useQueue();
@@ -11,7 +11,7 @@ export const CustomerDashboard: React.FC = () => {
   const [notifyEnabled, setNotifyEnabled] = useState(false);
   const [hasCelebrated, setHasCelebrated] = useState(false);
 
-  // Parse ticket parameter from URL on load
+  // Parse ticket parameter from URL or hash on load & when tickets update
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const searchParams = new URLSearchParams(window.location.search);
@@ -26,6 +26,7 @@ export const CustomerDashboard: React.FC = () => {
 
     if (ticketNo) {
       const cleanNo = ticketNo.trim().toUpperCase();
+      setInputTicket(cleanNo);
       const found = tickets.find((t) => t.ticketNumber.trim().toUpperCase() === cleanNo);
       if (found) {
         setSelectedTicketForCustomer(found);
@@ -33,8 +34,17 @@ export const CustomerDashboard: React.FC = () => {
     }
   }, [tickets, setSelectedTicketForCustomer]);
 
-  // Current customer ticket
-  const currentCustomerTicket = selectedTicketForCustomer;
+  // Synchronize live customer ticket from live tickets array so status changes (e.g. 'called') are instantly reactive
+  const currentCustomerTicket = useMemo(() => {
+    if (!selectedTicketForCustomer || tickets.length === 0) return null;
+    return (
+      tickets.find(
+        (t) =>
+          t.id === selectedTicketForCustomer.id ||
+          t.ticketNumber.trim().toUpperCase() === selectedTicketForCustomer.ticketNumber.trim().toUpperCase()
+      ) || null
+    );
+  }, [tickets, selectedTicketForCustomer]);
 
   // Find booth details for customer ticket
   const targetBooth = currentCustomerTicket
@@ -66,9 +76,10 @@ export const CustomerDashboard: React.FC = () => {
 
   // Trigger celebration & audio if turn arrives!
   useEffect(() => {
-    if (isMyTurn && !hasCelebrated) {
+    if (isMyTurn && currentCustomerTicket && !hasCelebrated) {
       setHasCelebrated(true);
       playChimeSound();
+      announceQueueVoice(currentCustomerTicket.ticketNumber, currentCustomerTicket.boothName);
       try {
         confetti({
           particleCount: 90,
@@ -79,7 +90,7 @@ export const CustomerDashboard: React.FC = () => {
         console.log(err);
       }
     }
-  }, [isMyTurn, hasCelebrated]);
+  }, [isMyTurn, currentCustomerTicket, hasCelebrated]);
 
   const handleSearchTicket = (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,20 +114,10 @@ export const CustomerDashboard: React.FC = () => {
     }
   };
 
-  const handleClearTicket = () => {
-    setSelectedTicketForCustomer(null);
-    setInputTicket('');
-    try {
-      localStorage.removeItem('photobooth_customer_last_ticket_num');
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
   const handleEnableNotify = () => {
     playChimeSound();
     setNotifyEnabled(true);
-    alert('Notifikasi suara aktif! Browser Anda akan membunyikan bel panggilan saat giliran tiba.');
+    alert('Notifikasi suara aktif! Browser Anda akan membunyikan bel & suara panggilan saat giliran tiba.');
   };
 
   return (
@@ -232,7 +233,7 @@ export const CustomerDashboard: React.FC = () => {
             )}
           </div>
 
-          {/* Audio Notification Toggle & Clear Selection Bar */}
+          {/* Audio Notification Toggle Bar */}
           <div className="p-4 bg-white rounded-2xl border border-slate-200/80 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-2xl bg-red-100 text-red-700 flex items-center justify-center font-bold shrink-0">
@@ -252,23 +253,14 @@ export const CustomerDashboard: React.FC = () => {
               <button
                 id="btn-customer-toggle-notify"
                 onClick={handleEnableNotify}
-                className={`flex-1 sm:flex-initial px-4 py-2.5 rounded-xl font-extrabold text-xs transition-all flex items-center justify-center gap-1.5 active:scale-95 ${
+                className={`w-full sm:w-auto px-5 py-2.5 rounded-xl font-extrabold text-xs transition-all flex items-center justify-center gap-1.5 active:scale-95 ${
                   notifyEnabled
                     ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
                     : 'bg-red-600 hover:bg-red-700 text-white shadow-md shadow-red-600/20'
                 }`}
               >
                 <Volume2 className="w-4 h-4" />
-                <span>{notifyEnabled ? 'Aktif' : 'Aktifkan'}</span>
-              </button>
-
-              <button
-                onClick={handleClearTicket}
-                className="px-3.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center gap-1 transition-colors"
-                title="Cek / Ganti Nomor Tiket Lain"
-              >
-                <RefreshCw className="w-3.5 h-3.5 text-slate-500" />
-                <span>Cek Tiket Lain</span>
+                <span>{notifyEnabled ? 'Aktif' : 'Aktifkan Suara'}</span>
               </button>
             </div>
           </div>
@@ -284,34 +276,42 @@ export const CustomerDashboard: React.FC = () => {
           <span className="text-[11px] font-bold text-slate-400">Status Live Studio</span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {booths.map((b) => {
-            const activeT = tickets.find((t) => t.boothId === b.id && t.status === 'called');
-            const waitCount = tickets.filter((t) => t.boothId === b.id && t.status === 'waiting').length;
+        {tickets.length === 0 ? (
+          <div className="p-6 bg-slate-50 rounded-2xl border border-dashed border-slate-300 text-center space-y-1">
+            <p className="font-extrabold text-slate-700 text-sm">Belum Ada Antrian Aktif</p>
+            <p className="text-xs text-slate-500">Seluruh antrian sedang kosong atau belum ada tiket baru.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {booths.map((b) => {
+              const activeT = tickets.find((t) => t.boothId === b.id && t.status === 'called');
+              const waitCount = tickets.filter((t) => t.boothId === b.id && t.status === 'waiting').length;
 
-            return (
-              <div key={b.id} className="p-4 bg-slate-50/90 rounded-2xl border border-slate-200/90 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-black text-slate-900 block truncate">{b.name}</span>
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="Booth Aktif" />
-                </div>
-                <div className="flex items-center justify-between pt-1 border-t border-slate-200/60">
-                  <div>
-                    <span className="text-[10px] font-bold text-slate-400 block uppercase">Dipanggil</span>
-                    <span className="text-sm font-black font-mono text-red-600">
-                      {activeT ? activeT.ticketNumber : '---'}
-                    </span>
+              return (
+                <div key={b.id} className="p-4 bg-slate-50/90 rounded-2xl border border-slate-200/90 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black text-slate-900 block truncate">{b.name}</span>
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" title="Booth Aktif" />
                   </div>
-                  <div className="text-right">
-                    <span className="text-[10px] font-bold text-slate-400 block uppercase">Menunggu</span>
-                    <span className="text-xs font-extrabold text-amber-600">{waitCount} orang</span>
+                  <div className="flex items-center justify-between pt-1 border-t border-slate-200/60">
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-400 block uppercase">Dipanggil</span>
+                      <span className="text-sm font-black font-mono text-red-600">
+                        {activeT ? activeT.ticketNumber : '---'}
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[10px] font-bold text-slate-400 block uppercase">Menunggu</span>
+                      <span className="text-xs font-extrabold text-amber-600">{waitCount} orang</span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
 };
+

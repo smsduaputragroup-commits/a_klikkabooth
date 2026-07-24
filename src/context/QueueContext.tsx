@@ -582,6 +582,11 @@ export const QueueProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setTickets([]);
     setLastCalledTicket(null);
     setSelectedTicketForCustomer(null);
+    try {
+      localStorage.removeItem('photobooth_customer_last_ticket_num');
+    } catch (err) {
+      console.error(err);
+    }
     saveAndBroadcast(resetBooths, [], printSettings, appsScriptConfig, updatedLogs, null);
   }, [booths, addLog, saveAndBroadcast, printSettings, appsScriptConfig]);
 
