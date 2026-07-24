@@ -113,13 +113,37 @@ export const QueueProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   // UI state
   const [activeTab, setActiveTabState] = useState<ActiveTab>('admin');
   const [selectedTicketForCustomer, setSelectedTicketForCustomer] = useState<Ticket | null>(null);
-  const [lastCalledTicket, setLastCalledTicket] = useState<Ticket | null>(null);
+  const [lastCalledTicket, setLastCalledTicket] = useState<Ticket | null>(() => {
+    try {
+      const saved = localStorage.getItem('photobooth_last_called_ticket');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
   const [activeTicketToPrint, setActiveTicketToPrint] = useState<Ticket | null>(null);
   const [isPrintModalOpen, setIsPrintModalOpen] = useState<boolean>(false);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
 
-  // Broadcast Channel for multi-tab sync
+  // Broadcast Channel & Storage listener for multi-tab sync
   const [broadcastChannel, setBroadcastChannel] = useState<BroadcastChannel | null>(null);
+
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === LOCAL_STORAGE_KEY_TICKETS && e.newValue) {
+        try { setTickets(JSON.parse(e.newValue)); } catch (err) { console.error(err); }
+      }
+      if (e.key === LOCAL_STORAGE_KEY_BOOTHS && e.newValue) {
+        try { setBooths(JSON.parse(e.newValue)); } catch (err) { console.error(err); }
+      }
+      if (e.key === 'photobooth_last_called_ticket') {
+        try { setLastCalledTicket(e.newValue ? JSON.parse(e.newValue) : null); } catch (err) { console.error(err); }
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
@@ -219,11 +243,17 @@ export const QueueProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       newLogs: ActivityLog[],
       calledTicket?: Ticket | null
     ) => {
+      const activeLastCalled = calledTicket !== undefined ? calledTicket : lastCalledTicket;
       localStorage.setItem(LOCAL_STORAGE_KEY_BOOTHS, JSON.stringify(newBooths));
       localStorage.setItem(LOCAL_STORAGE_KEY_TICKETS, JSON.stringify(newTickets));
       localStorage.setItem(LOCAL_STORAGE_KEY_PRINT, JSON.stringify(newPrint));
       localStorage.setItem(LOCAL_STORAGE_KEY_SCRIPT, JSON.stringify(newScript));
       localStorage.setItem(LOCAL_STORAGE_KEY_LOGS, JSON.stringify(newLogs));
+      if (activeLastCalled) {
+        localStorage.setItem('photobooth_last_called_ticket', JSON.stringify(activeLastCalled));
+      } else {
+        localStorage.removeItem('photobooth_last_called_ticket');
+      }
 
       if (broadcastChannel) {
         broadcastChannel.postMessage({
@@ -234,7 +264,7 @@ export const QueueProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             printSettings: newPrint,
             appsScriptConfig: newScript,
             logs: newLogs,
-            lastCalledTicket: calledTicket ?? lastCalledTicket,
+            lastCalledTicket: activeLastCalled,
           },
         });
       }

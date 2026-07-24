@@ -5,11 +5,30 @@ import confetti from 'canvas-confetti';
 import { playChimeSound, announceQueueVoice } from '../../utils/audio';
 
 export const CustomerDashboard: React.FC = () => {
-  const { tickets, booths, selectedTicketForCustomer, setSelectedTicketForCustomer } = useQueue();
+  const { tickets, booths, lastCalledTicket, selectedTicketForCustomer, setSelectedTicketForCustomer } = useQueue();
 
   const [inputTicket, setInputTicket] = useState('');
   const [notifyEnabled, setNotifyEnabled] = useState(false);
   const [hasCelebrated, setHasCelebrated] = useState(false);
+
+  // Unlock Web Audio context on user interaction
+  useEffect(() => {
+    const handleUserInteraction = () => {
+      try {
+        if ('speechSynthesis' in window) {
+          window.speechSynthesis.resume();
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    };
+    window.addEventListener('click', handleUserInteraction, { once: true });
+    window.addEventListener('touchstart', handleUserInteraction, { once: true });
+    return () => {
+      window.removeEventListener('click', handleUserInteraction);
+      window.removeEventListener('touchstart', handleUserInteraction);
+    };
+  }, []);
 
   // Parse ticket parameter from URL or hash on load & when tickets update
   useEffect(() => {
@@ -74,15 +93,18 @@ export const CustomerDashboard: React.FC = () => {
   // Check if customer ticket is CALLED right now!
   const isMyTurn = currentCustomerTicket && currentCustomerTicket.status === 'called';
 
-  // Trigger celebration & audio if turn arrives!
+  // Trigger celebration & voice audio whenever my ticket is called by Admin (or recalled)!
   useEffect(() => {
-    if (isMyTurn && currentCustomerTicket && !hasCelebrated) {
+    if (!currentCustomerTicket) return;
+
+    // Direct check if my ticket status is 'called'
+    if (isMyTurn && !hasCelebrated) {
       setHasCelebrated(true);
       playChimeSound();
       announceQueueVoice(currentCustomerTicket.ticketNumber, currentCustomerTicket.boothName);
       try {
         confetti({
-          particleCount: 90,
+          particleCount: 100,
           spread: 80,
           origin: { y: 0.6 },
         });
@@ -91,6 +113,29 @@ export const CustomerDashboard: React.FC = () => {
       }
     }
   }, [isMyTurn, currentCustomerTicket, hasCelebrated]);
+
+  // React directly when Admin calls next or calls with voice
+  useEffect(() => {
+    if (!lastCalledTicket || !currentCustomerTicket) return;
+
+    const isMatch =
+      lastCalledTicket.id === currentCustomerTicket.id ||
+      lastCalledTicket.ticketNumber.trim().toUpperCase() === currentCustomerTicket.ticketNumber.trim().toUpperCase();
+
+    if (isMatch) {
+      playChimeSound();
+      announceQueueVoice(lastCalledTicket.ticketNumber, lastCalledTicket.boothName);
+      try {
+        confetti({
+          particleCount: 100,
+          spread: 80,
+          origin: { y: 0.6 },
+        });
+      } catch (err) {
+        console.log(err);
+      }
+    }
+  }, [lastCalledTicket, currentCustomerTicket]);
 
   const handleSearchTicket = (e: React.FormEvent) => {
     e.preventDefault();
