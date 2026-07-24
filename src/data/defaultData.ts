@@ -363,10 +363,6 @@ function doPost(e) {
     
     if (action === "syncAll") {
       return handleSyncAll(ss, data);
-    } else if (action === "addTicket") {
-      return handleAddTicket(ss, data);
-    } else if (action === "updateStatus") {
-      return handleUpdateStatus(ss, data);
     }
     
     return ContentService.createTextOutput(JSON.stringify({
@@ -386,16 +382,24 @@ function handleGetQueue(ss) {
   var ticketSheet = getOrCreateSheet(ss, "Tickets");
   var boothSheet = getOrCreateSheet(ss, "Booths");
   var logSheet = getOrCreateSheet(ss, "Logs");
+  var settingsSheet = getOrCreateSheet(ss, "Settings");
   
   var tickets = sheetToObjects(ticketSheet);
   var booths = sheetToObjects(boothSheet);
   var logs = sheetToObjects(logSheet);
+  var settings = sheetToObjects(settingsSheet);
+  
+  var adminPin = "";
+  for (var k = 0; k < settings.length; k++) {
+    if (settings[k].key === "adminPin") adminPin = settings[k].value;
+  }
   
   return ContentService.createTextOutput(JSON.stringify({
     status: "success",
     booths: booths,
     tickets: tickets,
-    logs: logs
+    logs: logs,
+    adminPin: adminPin
   })).setMimeType(ContentService.MimeType.JSON);
 }
 
@@ -403,13 +407,16 @@ function handleSyncAll(ss, data) {
   var ticketSheet = getOrCreateSheet(ss, "Tickets");
   var boothSheet = getOrCreateSheet(ss, "Booths");
   var logSheet = getOrCreateSheet(ss, "Logs");
+  var settingsSheet = getOrCreateSheet(ss, "Settings");
   
   // Save Booths
   if (data.booths) {
     boothSheet.clear();
     boothSheet.appendRow(["id", "name", "code", "currentNumber", "totalTickets", "status", "avgTimePerSession", "themeColor"]);
     data.booths.forEach(function(b) {
-      boothSheet.appendRow([b.id, b.name, b.code, b.currentNumber, b.totalTickets, b.status, b.avgTimePerSession, b.themeColor]);
+      if (b && b.id && b.name) {
+        boothSheet.appendRow([b.id, b.name, b.code, b.currentNumber, b.totalTickets, b.status, b.avgTimePerSession, b.themeColor]);
+      }
     });
   }
   
@@ -418,22 +425,33 @@ function handleSyncAll(ss, data) {
     ticketSheet.clear();
     ticketSheet.appendRow(["id", "boothId", "boothName", "boothCode", "ticketNumber", "sequence", "status", "createdAt", "calledAt", "completedAt"]);
     data.tickets.forEach(function(t) {
-      ticketSheet.appendRow([t.id, t.boothId, t.boothName, t.boothCode, t.ticketNumber, t.sequence, t.status, t.createdAt, t.calledAt || "", t.completedAt || ""]);
+      if (t && t.id && t.ticketNumber) {
+        ticketSheet.appendRow([t.id, t.boothId, t.boothName, t.boothCode, t.ticketNumber, t.sequence, t.status, t.createdAt, t.calledAt || "", t.completedAt || ""]);
+      }
     });
   }
   
-  // Save Logs (clear sheet even if data.logs is empty [])
+  // Save Logs
   if (data.logs) {
     logSheet.clear();
     logSheet.appendRow(["id", "timestamp", "date", "action", "details", "boothName", "ticketNumber"]);
     data.logs.forEach(function(l) {
-      logSheet.appendRow([l.id, l.timestamp, l.date, l.action, l.details, l.boothName || "", l.ticketNumber || ""]);
+      if (l && l.id) {
+        logSheet.appendRow([l.id, l.timestamp, l.date, l.action, l.details, l.boothName || "", l.ticketNumber || ""]);
+      }
     });
+  }
+
+  // Save Settings / Admin PIN
+  if (data.adminPin) {
+    settingsSheet.clear();
+    settingsSheet.appendRow(["key", "value"]);
+    settingsSheet.appendRow(["adminPin", String(data.adminPin)]);
   }
   
   return ContentService.createTextOutput(JSON.stringify({
     status: "success",
-    message: "Synced " + (data.tickets ? data.tickets.length : 0) + " tickets to Google Sheets",
+    message: "Synced data to Google Sheets",
     timestamp: new Date().toISOString()
   })).setMimeType(ContentService.MimeType.JSON);
 }
@@ -452,6 +470,8 @@ function sheetToObjects(sheet) {
   var headers = data[0];
   var result = [];
   for (var i = 1; i < data.length; i++) {
+    var idVal = String(data[i][0]).trim();
+    if (!idVal) continue; // skip blank rows
     var obj = {};
     for (var j = 0; j < headers.length; j++) {
       obj[headers[j]] = data[i][j];

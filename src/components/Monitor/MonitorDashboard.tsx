@@ -65,19 +65,8 @@ export const MonitorDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Clock & Sync & Fullscreen Action Bar */}
+        {/* Clock & Fullscreen Action Bar */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          {/* Sync Status Badge */}
-          {appsScriptConfig.enabled && appsScriptConfig.webAppUrl && (
-            <div
-              className="bg-emerald-950/80 border border-emerald-600/60 text-emerald-300 px-3 py-1.5 rounded-2xl text-xs font-bold flex items-center gap-1.5 shadow-md"
-              title="Sistem terhubung otomatis ke Google Sheets Database."
-            >
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
-              <span className="hidden md:inline">Sync Active</span>
-            </div>
-          )}
-
           <div className="bg-slate-950 px-4 py-1.5 rounded-2xl border border-slate-800 flex items-baseline gap-2 text-right">
             <span className="text-2xl sm:text-3xl font-black font-mono text-red-500 tracking-tight">
               {formattedTimeStr}

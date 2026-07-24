@@ -70,7 +70,7 @@ export const TicketReceiptView: React.FC<TicketReceiptViewProps> = ({
     else if (style === 'custom') content = settings.dividerText || '--------------------------------';
 
     return (
-      <div className="text-slate-400 text-[11px] my-1 select-none overflow-hidden whitespace-nowrap leading-none tracking-tighter">
+      <div className="text-black text-[11px] my-1 select-none overflow-hidden whitespace-nowrap leading-none tracking-tighter">
         {content}
       </div>
     );
@@ -178,14 +178,14 @@ export const TicketReceiptView: React.FC<TicketReceiptViewProps> = ({
 
       {/* SUB-HEADER TITLE */}
       {settings.subHeaderTitle && (
-        <p className="text-[10px] text-slate-500 font-medium tracking-tight mt-0.5">
+        <p className="text-[10px] text-black font-medium tracking-tight mt-0.5">
           {settings.subHeaderTitle}
         </p>
       )}
 
       {/* 3. BRANCH NAME (DYNAMIC / STATIC) */}
       {(settings.showBranchName ?? true) && settings.branchName && (
-        <p className="text-[11px] text-slate-700 font-sans mt-0.5 max-w-[200px] leading-snug">
+        <p className="text-[11px] text-black font-sans mt-0.5 max-w-[200px] leading-snug">
           {settings.branchName}
         </p>
       )}
@@ -201,21 +201,21 @@ export const TicketReceiptView: React.FC<TicketReceiptViewProps> = ({
 
       {/* 5. BOOTH NAME (DYNAMIC) */}
       {(settings.showBoothName ?? true) && (
-        <div className="text-[11px] font-extrabold uppercase tracking-wider text-red-900 bg-red-50 px-2.5 py-0.5 rounded border border-red-200 my-0.5">
+        <div className="text-[11px] font-extrabold uppercase tracking-wider text-black bg-slate-100 px-2.5 py-0.5 rounded border border-black my-0.5">
           {ticket.boothName}
         </div>
       )}
 
       {/* ESTIMATED WAIT TIME (DYNAMIC) */}
       {(settings.showEstimatedWait ?? true) && estimatedWaitMinutes !== undefined && (
-        <div className="text-[10px] text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 mt-1 font-sans font-bold">
+        <div className="text-[10px] text-black bg-slate-100 px-2 py-0.5 rounded border border-black mt-1 font-sans font-bold">
           Estimasi tunggu: ~{estimatedWaitMinutes} menit
         </div>
       )}
 
       {/* 6. DATE & TIME (DYNAMIC FORMATTED) */}
       {(settings.showDateTime ?? true) && (
-        <div className="text-[10px] text-slate-600 my-1 font-mono">
+        <div className="text-[10px] text-black my-1 font-mono">
           {formatDateTime()}
         </div>
       )}
@@ -226,17 +226,17 @@ export const TicketReceiptView: React.FC<TicketReceiptViewProps> = ({
       {settings.showQR && (
         <div className="flex flex-col items-center my-1">
           {settings.qrSubText1 && (
-            <p className="text-[10px] font-sans font-medium text-slate-800 leading-tight">
+            <p className="text-[10px] font-sans font-medium text-black leading-tight">
               {settings.qrSubText1}
             </p>
           )}
           {settings.qrSubText2 && (
-            <p className="text-[10px] font-sans font-bold text-red-700 leading-tight mb-1">
+            <p className="text-[10px] font-sans font-bold text-black leading-tight mb-1">
               {settings.qrSubText2}
             </p>
           )}
 
-          <div className="p-1.5 bg-white border border-slate-200 rounded-lg shadow-inner">
+          <div className="p-1.5 bg-white border border-black rounded-lg">
             <QRCodeSVG value={customerQrUrl} size={qrSize} level="M" />
           </div>
         </div>
@@ -244,7 +244,7 @@ export const TicketReceiptView: React.FC<TicketReceiptViewProps> = ({
 
       {/* 8. CUSTOM NOTE / INSTRUCTIONS */}
       {settings.customNote && (
-        <p className="text-[10px] font-sans font-semibold text-slate-700 italic my-1 px-1">
+        <p className="text-[10px] font-sans font-semibold text-black italic my-1 px-1">
           "{settings.customNote}"
         </p>
       )}
@@ -253,7 +253,7 @@ export const TicketReceiptView: React.FC<TicketReceiptViewProps> = ({
 
       {/* 9. FOOTER TEXT (STATIC) */}
       {settings.footerText && (
-        <p className="text-[9px] font-sans text-slate-600 leading-tight max-w-[200px] mt-0.5">
+        <p className="text-[9px] font-sans text-black leading-tight max-w-[200px] mt-0.5">
           {settings.footerText}
         </p>
       )}

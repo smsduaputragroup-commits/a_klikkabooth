@@ -108,7 +108,10 @@ export const QueueProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const changeAdminPin = useCallback((newPin: string) => {
     setAdminPin(newPin);
     localStorage.setItem('photobooth_admin_pin', newPin);
-  }, []);
+    if (appsScriptConfig.enabled && appsScriptConfig.autoSync && appsScriptConfig.webAppUrl) {
+      syncToGoogleAppsScript(appsScriptConfig, booths, tickets, logs, newPin);
+    }
+  }, [appsScriptConfig, booths, tickets, logs]);
 
   // UI state
   const [activeTab, setActiveTabState] = useState<ActiveTab>('admin');
@@ -178,28 +181,37 @@ export const QueueProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       }
     };
 
-    const interval = setInterval(syncFromLocalStorage, 800);
+    const interval = setInterval(syncFromLocalStorage, 500);
     return () => clearInterval(interval);
   }, []);
 
-  // Periodic Google Apps Script remote polling (every 1.2 seconds if enabled)
+  // Periodic Google Apps Script remote polling (every 800ms if enabled - sub-second realtime)
   useEffect(() => {
     if (!appsScriptConfig.enabled || !appsScriptConfig.webAppUrl) return;
 
     const pollAppsScript = async () => {
-      // Do not overwrite local state if a local action occurred within the last 1.5 seconds
-      if (Date.now() - lastMutationTimeRef.current < 1500) {
+      // Do not overwrite local state if a local action occurred within the last 1.2 seconds
+      if (Date.now() - lastMutationTimeRef.current < 1200) {
         return;
       }
 
       const res = await fetchFromGoogleAppsScript(appsScriptConfig);
 
       // Re-check mutation lock after async fetch completes
-      if (Date.now() - lastMutationTimeRef.current < 1500) {
+      if (Date.now() - lastMutationTimeRef.current < 1200) {
         return;
       }
 
       if (res.success) {
+        if (res.adminPin && res.adminPin.trim().length > 0) {
+          setAdminPin((prev) => {
+            if (prev !== res.adminPin) {
+              localStorage.setItem('photobooth_admin_pin', res.adminPin!);
+              return res.adminPin!;
+            }
+            return prev;
+          });
+        }
         if (Array.isArray(res.tickets)) {
           setTickets((prev) => {
             if (JSON.stringify(prev) !== JSON.stringify(res.tickets)) {
@@ -236,7 +248,7 @@ export const QueueProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             }
           }
         }
-        if (Array.isArray(res.booths)) {
+        if (Array.isArray(res.booths) && res.booths.length > 0) {
           setBooths((prev) => {
             if (JSON.stringify(prev) !== JSON.stringify(res.booths)) {
               localStorage.setItem(LOCAL_STORAGE_KEY_BOOTHS, JSON.stringify(res.booths));
@@ -260,9 +272,9 @@ export const QueueProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     // Initial fetch on mount / enable
     pollAppsScript();
 
-    const interval = setInterval(pollAppsScript, 1200);
+    const interval = setInterval(pollAppsScript, 800);
     return () => clearInterval(interval);
-  }, [appsScriptConfig]);
+  }, [appsScriptConfig, soundEnabled]);
 
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
@@ -460,7 +472,7 @@ export const QueueProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       }
 
       if (newScript.enabled && newScript.autoSync && newScript.webAppUrl) {
-        syncToGoogleAppsScript(newScript, newBooths, newTickets, newLogs)
+        syncToGoogleAppsScript(newScript, newBooths, newTickets, newLogs, adminPin)
           .then(() => {
             lastMutationTimeRef.current = Date.now();
           })
@@ -469,7 +481,7 @@ export const QueueProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           });
       }
     },
-    [broadcastChannel, lastCalledTicket]
+    [broadcastChannel, lastCalledTicket, adminPin]
   );
 
   const addLog = useCallback(
@@ -496,7 +508,7 @@ export const QueueProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
     lastMutationTimeRef.current = Date.now();
     setAppsScriptConfig((prev) => ({ ...prev, syncStatus: 'syncing', errorMessage: undefined }));
-    const result = await syncToGoogleAppsScript(appsScriptConfig, booths, tickets, logs);
+    const result = await syncToGoogleAppsScript(appsScriptConfig, booths, tickets, logs, adminPin);
     lastMutationTimeRef.current = Date.now();
 
     const nowStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
