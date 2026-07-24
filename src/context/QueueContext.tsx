@@ -153,6 +153,15 @@ export const QueueProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             return prev;
           });
         }
+        const rawScript = localStorage.getItem(LOCAL_STORAGE_KEY_SCRIPT);
+        if (rawScript) {
+          setAppsScriptConfig((prev) => {
+            if (JSON.stringify(prev) !== rawScript) {
+              return JSON.parse(rawScript);
+            }
+            return prev;
+          });
+        }
         const rawCalled = localStorage.getItem('photobooth_last_called_ticket');
         if (rawCalled) {
           setLastCalledTicket((prev) => {
@@ -169,7 +178,7 @@ export const QueueProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       }
     };
 
-    const interval = setInterval(syncFromLocalStorage, 1000);
+    const interval = setInterval(syncFromLocalStorage, 800);
     return () => clearInterval(interval);
   }, []);
 
@@ -263,6 +272,9 @@ export const QueueProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       if (e.key === LOCAL_STORAGE_KEY_BOOTHS && e.newValue) {
         try { setBooths(JSON.parse(e.newValue)); } catch (err) { console.error(err); }
       }
+      if (e.key === LOCAL_STORAGE_KEY_SCRIPT && e.newValue) {
+        try { setAppsScriptConfig(JSON.parse(e.newValue)); } catch (err) { console.error(err); }
+      }
       if (e.key === 'photobooth_last_called_ticket') {
         try { setLastCalledTicket(e.newValue ? JSON.parse(e.newValue) : null); } catch (err) { console.error(err); }
       }
@@ -283,7 +295,10 @@ export const QueueProvider: React.FC<{ children: ReactNode }> = ({ children }) =
           if (data.booths) setBooths(data.booths);
           if (data.tickets) setTickets(data.tickets);
           if (data.printSettings) setPrintSettings(data.printSettings);
-          if (data.appsScriptConfig) setAppsScriptConfig(data.appsScriptConfig);
+          if (data.appsScriptConfig) {
+            setAppsScriptConfig(data.appsScriptConfig);
+            try { localStorage.setItem(LOCAL_STORAGE_KEY_SCRIPT, JSON.stringify(data.appsScriptConfig)); } catch (e) { console.error(e); }
+          }
           if (data.logs) setLogs(data.logs);
           if (data.lastCalledTicket) setLastCalledTicket(data.lastCalledTicket);
         } else if (type === 'CALL_ANNOUNCEMENT') {
@@ -848,9 +863,12 @@ export const QueueProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     if (typeof window !== 'undefined') {
       const url = new URL(window.location.href);
       url.searchParams.set('view', tab);
+      if (appsScriptConfig.webAppUrl) {
+        url.searchParams.set('gas', appsScriptConfig.webAppUrl);
+      }
       window.history.pushState({}, '', url.toString());
     }
-  }, []);
+  }, [appsScriptConfig.webAppUrl]);
 
   return (
     <QueueContext.Provider
