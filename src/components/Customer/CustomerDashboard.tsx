@@ -246,25 +246,34 @@ export const CustomerDashboard: React.FC = () => {
             </div>
 
             {/* Current Called Ticket & Queue Position */}
-            <div className="mt-6 pt-4 border-t border-slate-200 grid grid-cols-2 gap-3 text-left bg-white/80 p-4 rounded-2xl border border-slate-100 shadow-sm">
-              <div>
-                <span className="text-[11px] font-extrabold text-slate-400 uppercase block">
-                  SEDANG DIPANGGIL
-                </span>
-                <span className="text-2xl sm:text-3xl font-black font-mono text-slate-900">
-                  {currentCalledTicketInBooth ? currentCalledTicketInBooth.ticketNumber : '---'}
-                </span>
+            {currentCustomerTicket.status === 'completed' ? (
+              <div className="mt-6 pt-4 border-t border-slate-200 bg-emerald-50/90 p-4 rounded-2xl border border-emerald-200 text-center space-y-1">
+                <p className="font-black text-emerald-900 text-sm">Sesi Foto Anda Telah Selesai</p>
+                <p className="text-xs text-emerald-700 font-medium">
+                  Terima kasih telah mengabadikan momen seru bersama kami!
+                </p>
               </div>
+            ) : (
+              <div className="mt-6 pt-4 border-t border-slate-200 grid grid-cols-2 gap-3 text-left bg-white/80 p-4 rounded-2xl border border-slate-100 shadow-sm">
+                <div>
+                  <span className="text-[11px] font-extrabold text-slate-400 uppercase block">
+                    SEDANG DIPANGGIL
+                  </span>
+                  <span className="text-2xl sm:text-3xl font-black font-mono text-slate-900">
+                    {currentCalledTicketInBooth ? currentCalledTicketInBooth.ticketNumber : '---'}
+                  </span>
+                </div>
 
-              <div>
-                <span className="text-[11px] font-extrabold text-slate-400 uppercase block">
-                  ANTRIAN DI DEPAN KAMU
-                </span>
-                <span className="text-2xl sm:text-3xl font-black text-red-600 flex items-center gap-1">
-                  {isMyTurn ? '0' : `${ticketsAhead} Orang`}
-                </span>
+                <div>
+                  <span className="text-[11px] font-extrabold text-slate-400 uppercase block">
+                    ANTRIAN DI DEPAN KAMU
+                  </span>
+                  <span className="text-2xl sm:text-3xl font-black text-red-600 flex items-center gap-1">
+                    {isMyTurn ? '0' : `${ticketsAhead} Orang`}
+                  </span>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Estimated Wait Time */}
             {!isMyTurn && currentCustomerTicket.status === 'waiting' && (

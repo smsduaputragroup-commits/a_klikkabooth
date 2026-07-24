@@ -128,6 +128,48 @@ export const QueueProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   // Broadcast Channel & Storage listener for multi-tab sync
   const [broadcastChannel, setBroadcastChannel] = useState<BroadcastChannel | null>(null);
 
+  // Periodic 1-second polling to guarantee real-time sync across tabs/windows
+  useEffect(() => {
+    const syncFromLocalStorage = () => {
+      try {
+        const rawTickets = localStorage.getItem(LOCAL_STORAGE_KEY_TICKETS);
+        if (rawTickets) {
+          setTickets((prev) => {
+            if (JSON.stringify(prev) !== rawTickets) {
+              return JSON.parse(rawTickets);
+            }
+            return prev;
+          });
+        }
+        const rawBooths = localStorage.getItem(LOCAL_STORAGE_KEY_BOOTHS);
+        if (rawBooths) {
+          setBooths((prev) => {
+            if (JSON.stringify(prev) !== rawBooths) {
+              return JSON.parse(rawBooths);
+            }
+            return prev;
+          });
+        }
+        const rawCalled = localStorage.getItem('photobooth_last_called_ticket');
+        if (rawCalled) {
+          setLastCalledTicket((prev) => {
+            if (JSON.stringify(prev) !== rawCalled) {
+              return JSON.parse(rawCalled);
+            }
+            return prev;
+          });
+        } else {
+          setLastCalledTicket((prev) => (prev !== null ? null : prev));
+        }
+      } catch (err) {
+        console.error('Interval sync error:', err);
+      }
+    };
+
+    const interval = setInterval(syncFromLocalStorage, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === LOCAL_STORAGE_KEY_TICKETS && e.newValue) {
