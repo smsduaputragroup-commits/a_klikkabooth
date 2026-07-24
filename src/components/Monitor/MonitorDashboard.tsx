@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useQueue } from '../../context/QueueContext';
-import { Tv, Users, Megaphone, Maximize2, Minimize2, Sparkles } from 'lucide-react';
+import { Users, Megaphone, Maximize2, Minimize2, Sparkles } from 'lucide-react';
 
 export const MonitorDashboard: React.FC = () => {
   const { booths, tickets, lastCalledTicket } = useQueue();
@@ -53,24 +53,14 @@ export const MonitorDashboard: React.FC = () => {
 
   return (
     <div className="flex-1 w-full min-h-screen bg-slate-950 text-slate-100 p-3 sm:p-5 lg:p-6 flex flex-col justify-between space-y-3 sm:space-y-4 select-none overflow-hidden">
-      {/* TOP HEADER BAR (TV STUDIO MONITOR) */}
+      {/* TOP HEADER BAR (TV MONITOR) */}
       <div className="bg-slate-900/90 rounded-2xl sm:rounded-3xl p-3 sm:p-4 border border-slate-800/90 shadow-2xl flex items-center justify-between gap-4 shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-red-600 text-white flex items-center justify-center font-black shadow-lg shadow-red-600/40 shrink-0">
-            <Tv className="w-5 h-5" />
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse" title="Live System" />
-            <span className="text-xs font-black tracking-widest text-emerald-400 uppercase">LIVE STUDIO</span>
-          </div>
-        </div>
-
         {/* Center Marquee Announcement Banner */}
-        <div className="hidden lg:flex flex-1 max-w-xl mx-4 bg-slate-950/80 px-4 py-2 rounded-2xl border border-slate-800/90 overflow-hidden text-xs font-bold text-amber-400 items-center gap-2">
+        <div className="flex flex-1 max-w-2xl bg-slate-950/80 px-4 py-2 rounded-2xl border border-slate-800/90 overflow-hidden text-xs font-bold text-amber-400 items-center gap-2">
           <Sparkles className="w-4 h-4 shrink-0 text-amber-400 z-10 bg-slate-950" />
           <div className="w-full overflow-hidden relative">
             <div className="animate-marquee tracking-wide text-slate-200">
-              ✨ Selamat Datang di Photobooth Studio! Terima kasih telah berkunjung. Silakan bersantai & perhatikan panggilan nomor antrian Anda di layar. Selamat mengabadikan momen seru! 📸
+              ✨ Selamat Datang di Klikka Photobooth! Terima kasih telah berkunjung. Silakan bersantai & perhatikan panggilan nomor antrian Anda di layar. Selamat mengabadikan momen seru! 📸
             </div>
           </div>
         </div>
@@ -110,9 +100,6 @@ export const MonitorDashboard: React.FC = () => {
               <Megaphone className="w-6 h-6 text-red-500 animate-pulse" />
               <span>SEDANG DIPANGGIL SAAT INI</span>
             </h3>
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest hidden sm:inline">
-              DASHBOARD PANGGILAN
-            </span>
           </div>
 
           {/* Dominant Booth Cards Container */}

@@ -60,7 +60,7 @@ export const BoothCard: React.FC<BoothCardProps> = ({ booth }) => {
             className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 mt-1 shadow-sm hover:bg-emerald-200 transition-colors"
           >
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            Sedang Dipanggil (Kelola)
+            Sedang Dipanggil
           </button>
         ) : (
           <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-500 mt-1">
