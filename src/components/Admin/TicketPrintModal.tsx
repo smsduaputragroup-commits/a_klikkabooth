@@ -9,6 +9,7 @@ export const TicketPrintModal: React.FC = () => {
     isPrintModalOpen,
     setIsPrintModalOpen,
     printSettings,
+    appsScriptConfig,
     booths,
     tickets,
   } = useQueue();
@@ -25,7 +26,10 @@ export const TicketPrintModal: React.FC = () => {
 
   // Build target QR code URL to customer view
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  const customerQrUrl = `${origin}?view=customer&ticket=${activeTicketToPrint.ticketNumber}`;
+  let customerQrUrl = `${origin}?view=customer&ticket=${activeTicketToPrint.ticketNumber}`;
+  if (appsScriptConfig.enabled && appsScriptConfig.webAppUrl) {
+    customerQrUrl += `&gas=${encodeURIComponent(appsScriptConfig.webAppUrl)}`;
+  }
 
   const handlePrint = () => {
     window.print();

@@ -275,6 +275,30 @@ export const QueueProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         hashParams.get('ticket') ||
         hashParams.get('t');
 
+      const gasParam =
+        searchParams.get('gas') ||
+        searchParams.get('script') ||
+        searchParams.get('scriptUrl') ||
+        hashParams.get('gas');
+
+      if (gasParam) {
+        try {
+          const decodedUrl = decodeURIComponent(gasParam);
+          if (decodedUrl && decodedUrl.startsWith('http') && decodedUrl !== appsScriptConfig.webAppUrl) {
+            const newConfig: AppsScriptConfig = {
+              enabled: true,
+              autoSync: true,
+              webAppUrl: decodedUrl,
+              syncStatus: 'idle',
+            };
+            setAppsScriptConfig(newConfig);
+            localStorage.setItem(LOCAL_STORAGE_KEY_SCRIPT, JSON.stringify(newConfig));
+          }
+        } catch (e) {
+          console.error('Failed to parse gas param from URL:', e);
+        }
+      }
+
       if (viewParam && ['admin', 'monitor', 'customer', 'script-guide'].includes(viewParam)) {
         setActiveTabState(viewParam);
       }
@@ -284,12 +308,26 @@ export const QueueProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         const found = tickets.find((t) => t.ticketNumber.trim().toUpperCase() === cleanNo);
         if (found) {
           setSelectedTicketForCustomer(found);
-          setActiveTabState('customer');
-          try {
-            localStorage.setItem('photobooth_customer_last_ticket_num', found.ticketNumber);
-          } catch (e) {
-            console.error(e);
-          }
+        } else if (!selectedTicketForCustomer || selectedTicketForCustomer.ticketNumber !== cleanNo) {
+          const boothCode = cleanNo.replace(/[^A-Z]/g, '').substring(0, 3) || 'BOOTH';
+          const matchedBooth = booths.find((b) => b.code.toUpperCase() === boothCode) || booths[0];
+          const virtualTicket: Ticket = {
+            id: `virtual-${cleanNo}`,
+            boothId: matchedBooth ? matchedBooth.id : 'b1',
+            boothName: matchedBooth ? matchedBooth.name : 'Photobooth',
+            boothCode: matchedBooth ? matchedBooth.code : boothCode,
+            ticketNumber: cleanNo,
+            sequence: 999,
+            status: 'waiting',
+            createdAt: new Date().toISOString(),
+          };
+          setSelectedTicketForCustomer(virtualTicket);
+        }
+        setActiveTabState('customer');
+        try {
+          localStorage.setItem('photobooth_customer_last_ticket_num', cleanNo);
+        } catch (e) {
+          console.error(e);
         }
       } else if (!selectedTicketForCustomer) {
         // Auto-restore last searched ticket if active

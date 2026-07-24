@@ -1,6 +1,7 @@
 import React from 'react';
 import { Ticket, PrintSettings } from '../../types';
 import { QRCodeSVG } from 'qrcode.react';
+import { useQueue } from '../../context/QueueContext';
 
 interface TicketReceiptViewProps {
   ticket: Ticket;
@@ -17,6 +18,7 @@ export const TicketReceiptView: React.FC<TicketReceiptViewProps> = ({
   id = 'printable-thermal-ticket',
   isPrintMode = false,
 }) => {
+  const { appsScriptConfig } = useQueue();
   // Format Date & Time according to settings
   const createdDate = new Date(ticket.createdAt);
   const isValidDate = !isNaN(createdDate.getTime());
@@ -138,6 +140,8 @@ export const TicketReceiptView: React.FC<TicketReceiptViewProps> = ({
   let customerQrUrl = `${origin}?view=customer&ticket=${ticket.ticketNumber}`;
   if (settings.qrCustomUrlPattern && settings.qrCustomUrlPattern.trim()) {
     customerQrUrl = settings.qrCustomUrlPattern.replace('{ticket}', ticket.ticketNumber);
+  } else if (appsScriptConfig && appsScriptConfig.enabled && appsScriptConfig.webAppUrl) {
+    customerQrUrl += `&gas=${encodeURIComponent(appsScriptConfig.webAppUrl)}`;
   }
 
   const logoWidth = settings.logoWidth || 48;

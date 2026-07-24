@@ -49,19 +49,33 @@ export const CustomerDashboard: React.FC = () => {
       const found = tickets.find((t) => t.ticketNumber.trim().toUpperCase() === cleanNo);
       if (found) {
         setSelectedTicketForCustomer(found);
+      } else if (!selectedTicketForCustomer || selectedTicketForCustomer.ticketNumber !== cleanNo) {
+        const boothCode = cleanNo.replace(/[^A-Z]/g, '').substring(0, 3) || 'BOOTH';
+        const matchedBooth = booths.find((b) => b.code.toUpperCase() === boothCode) || booths[0];
+        const virtualTicket = {
+          id: `virtual-${cleanNo}`,
+          boothId: matchedBooth ? matchedBooth.id : 'b1',
+          boothName: matchedBooth ? matchedBooth.name : 'Photobooth',
+          boothCode: matchedBooth ? matchedBooth.code : boothCode,
+          ticketNumber: cleanNo,
+          sequence: 999,
+          status: 'waiting' as const,
+          createdAt: new Date().toISOString(),
+        };
+        setSelectedTicketForCustomer(virtualTicket);
       }
     }
-  }, [tickets, setSelectedTicketForCustomer]);
+  }, [tickets, booths, selectedTicketForCustomer, setSelectedTicketForCustomer]);
 
   // Synchronize live customer ticket from live tickets array so status changes (e.g. 'called') are instantly reactive
   const currentCustomerTicket = useMemo(() => {
-    if (!selectedTicketForCustomer || tickets.length === 0) return null;
+    if (!selectedTicketForCustomer) return null;
     return (
       tickets.find(
         (t) =>
           t.id === selectedTicketForCustomer.id ||
           t.ticketNumber.trim().toUpperCase() === selectedTicketForCustomer.ticketNumber.trim().toUpperCase()
-      ) || null
+      ) || selectedTicketForCustomer
     );
   }, [tickets, selectedTicketForCustomer]);
 
