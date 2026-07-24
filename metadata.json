@@ -1,0 +1,8 @@
+{
+  "name": "Remix: Photobooth Queue System",
+  "description": "Sistem antrian photobooth real-time dengan Dashboard Admin, Dashboard Pengguna, Monitor TV, dan integrasi Google Sheets Apps Script.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
