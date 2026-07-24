@@ -327,15 +327,25 @@ export const QueueProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       if (waiting.length === 0) return null;
 
       const ticketToCall = waiting[0];
-      const updatedTickets = tickets.map((t) =>
-        t.id === ticketToCall.id
-          ? {
-              ...t,
-              status: 'called' as const,
-              calledAt: new Date().toISOString(),
-            }
-          : t
-      );
+      const nowIso = new Date().toISOString();
+
+      const updatedTickets = tickets.map((t) => {
+        if (t.boothId === boothId && t.status === 'called') {
+          return {
+            ...t,
+            status: 'completed' as const,
+            completedAt: nowIso,
+          };
+        }
+        if (t.id === ticketToCall.id) {
+          return {
+            ...t,
+            status: 'called' as const,
+            calledAt: nowIso,
+          };
+        }
+        return t;
+      });
 
       const updatedBooths = booths.map((b) =>
         b.id === boothId ? { ...b, currentNumber: ticketToCall.sequence } : b
@@ -429,6 +439,17 @@ export const QueueProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       const ticket = tickets.find((t) => t.id === ticketId);
       if (!ticket) return;
 
+      const nowIso = new Date().toISOString();
+      const updatedTickets = tickets.map((t) => {
+        if (t.boothId === ticket.boothId && t.status === 'called' && t.id !== ticketId) {
+          return { ...t, status: 'completed' as const, completedAt: nowIso };
+        }
+        if (t.id === ticketId) {
+          return { ...t, status: 'called' as const, calledAt: nowIso };
+        }
+        return t;
+      });
+
       if (soundEnabled) {
         announceQueueVoice(ticket.ticketNumber, ticket.boothName);
       }
@@ -440,8 +461,11 @@ export const QueueProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         ticket.ticketNumber
       );
 
-      setLastCalledTicket({ ...ticket, calledAt: new Date().toISOString() });
-      saveAndBroadcast(booths, tickets, printSettings, appsScriptConfig, updatedLogs, ticket);
+      const recalledTicket = { ...ticket, status: 'called' as const, calledAt: nowIso };
+
+      setTickets(updatedTickets);
+      setLastCalledTicket(recalledTicket);
+      saveAndBroadcast(booths, updatedTickets, printSettings, appsScriptConfig, updatedLogs, recalledTicket);
     },
     [tickets, soundEnabled, addLog, saveAndBroadcast, booths, printSettings, appsScriptConfig]
   );
