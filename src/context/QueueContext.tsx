@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, Rea
 import { Booth, Ticket, PrintSettings, AppsScriptConfig, ActivityLog, ActiveTab, ActivityAction } from '../types';
 import { DEFAULT_BOOTHS, DEFAULT_PRINT_SETTINGS, DEFAULT_APPS_SCRIPT_CONFIG, INITIAL_TICKETS, INITIAL_LOGS } from '../data/defaultData';
 import { announceQueueVoice } from '../utils/audio';
-import { syncToGoogleAppsScript } from '../utils/googleAppsScript';
+import { syncToGoogleAppsScript, fetchFromGoogleAppsScript } from '../utils/googleAppsScript';
 
 interface QueueContextType {
   booths: Booth[];
@@ -170,6 +170,39 @@ export const QueueProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     return () => clearInterval(interval);
   }, []);
 
+  // Periodic Google Apps Script remote polling (every 3 seconds if enabled)
+  useEffect(() => {
+    if (!appsScriptConfig.enabled || !appsScriptConfig.webAppUrl) return;
+
+    const pollAppsScript = async () => {
+      const res = await fetchFromGoogleAppsScript(appsScriptConfig);
+      if (res.success && res.tickets && res.tickets.length > 0) {
+        setTickets((prev) => {
+          if (JSON.stringify(prev) !== JSON.stringify(res.tickets)) {
+            localStorage.setItem(LOCAL_STORAGE_KEY_TICKETS, JSON.stringify(res.tickets));
+            return res.tickets;
+          }
+          return prev;
+        });
+        if (res.booths && res.booths.length > 0) {
+          setBooths((prev) => {
+            if (JSON.stringify(prev) !== JSON.stringify(res.booths)) {
+              localStorage.setItem(LOCAL_STORAGE_KEY_BOOTHS, JSON.stringify(res.booths));
+              return res.booths;
+            }
+            return prev;
+          });
+        }
+      }
+    };
+
+    // Initial fetch on mount / enable
+    pollAppsScript();
+
+    const interval = setInterval(pollAppsScript, 3000);
+    return () => clearInterval(interval);
+  }, [appsScriptConfig]);
+
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === LOCAL_STORAGE_KEY_TICKETS && e.newValue) {
@@ -308,6 +341,12 @@ export const QueueProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             logs: newLogs,
             lastCalledTicket: activeLastCalled,
           },
+        });
+      }
+
+      if (newScript.enabled && newScript.autoSync && newScript.webAppUrl) {
+        syncToGoogleAppsScript(newScript, newBooths, newTickets, newLogs).catch((err) => {
+          console.error('Auto sync to Google Apps Script failed:', err);
         });
       }
     },
