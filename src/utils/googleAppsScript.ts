@@ -48,7 +48,7 @@ export async function syncToGoogleAppsScript(
 
 export async function fetchFromGoogleAppsScript(
   config: AppsScriptConfig
-): Promise<{ success: boolean; booths?: Booth[]; tickets?: Ticket[]; message?: string }> {
+): Promise<{ success: boolean; booths?: Booth[]; tickets?: Ticket[]; logs?: ActivityLog[]; message?: string }> {
   if (!config.enabled || !config.webAppUrl) {
     return { success: false, message: 'Google Apps Script belum aktif' };
   }
@@ -77,10 +77,23 @@ export async function fetchFromGoogleAppsScript(
           }))
         : [];
 
+      const parsedLogs = Array.isArray(data.logs)
+        ? data.logs.map((l: Record<string, unknown>) => ({
+            id: String(l.id || `log-${Date.now()}`),
+            timestamp: String(l.timestamp || ''),
+            date: String(l.date || ''),
+            action: String(l.action || 'UPDATE_SETTINGS') as any,
+            details: String(l.details || ''),
+            boothName: l.boothName ? String(l.boothName) : undefined,
+            ticketNumber: l.ticketNumber ? String(l.ticketNumber) : undefined,
+          }))
+        : [];
+
       return {
         success: true,
         booths: parsedBooths as Booth[],
         tickets: parsedTickets as Ticket[],
+        logs: parsedLogs as ActivityLog[],
       };
     }
     return { success: false, message: 'Data tidak valid dari Google Sheets' };

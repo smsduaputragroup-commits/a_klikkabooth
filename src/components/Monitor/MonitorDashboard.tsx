@@ -1,18 +1,31 @@
 import React, { useState, useEffect } from 'react';
 import { useQueue } from '../../context/QueueContext';
-import { Users, Megaphone, Maximize2, Minimize2, Sparkles } from 'lucide-react';
+import { Users, Megaphone, Maximize2, Minimize2, Sparkles, Link as LinkIcon, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
 
 export const MonitorDashboard: React.FC = () => {
-  const { booths, tickets, lastCalledTicket } = useQueue();
+  const { booths, tickets, lastCalledTicket, appsScriptConfig, updateAppsScriptConfig, triggerSyncToGoogleSheets } = useQueue();
 
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showConfigModal, setShowConfigModal] = useState(false);
+  const [inputUrl, setInputUrl] = useState(appsScriptConfig.webAppUrl || '');
 
   // Clock ticker
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  const handleSaveConfig = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inputUrl.trim()) return;
+    updateAppsScriptConfig({
+      enabled: true,
+      webAppUrl: inputUrl.trim(),
+      autoSync: true,
+    });
+    setShowConfigModal(false);
+  };
 
   // Listen for fullscreen change
   useEffect(() => {
@@ -65,8 +78,35 @@ export const MonitorDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Clock & Fullscreen Action Bar */}
-        <div className="flex items-center gap-3 shrink-0">
+        {/* Clock & Sync & Fullscreen Action Bar */}
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          {/* Sync Status Badge / Config Trigger */}
+          {appsScriptConfig.enabled && appsScriptConfig.webAppUrl ? (
+            <button
+              onClick={() => {
+                setInputUrl(appsScriptConfig.webAppUrl);
+                setShowConfigModal(true);
+              }}
+              className="bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-600/60 text-emerald-300 px-3 py-1.5 rounded-2xl text-xs font-bold flex items-center gap-1.5 shadow-md transition-all"
+              title="Sistem terhubung ke Google Sheets. Klik untuk ubah URL."
+            >
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
+              <span className="hidden md:inline">Sync Active</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => {
+                setInputUrl(appsScriptConfig.webAppUrl || '');
+                setShowConfigModal(true);
+              }}
+              className="bg-amber-950/90 hover:bg-amber-900 border border-amber-600/80 text-amber-300 px-3 py-1.5 rounded-2xl text-xs font-extrabold flex items-center gap-1.5 shadow-lg shadow-amber-950/50 animate-bounce"
+              title="Klik untuk hubungkan Monitor ke Google Sheets"
+            >
+              <AlertCircle className="w-4 h-4 text-amber-400" />
+              <span>Hubungkan Sync</span>
+            </button>
+          )}
+
           <div className="bg-slate-950 px-4 py-1.5 rounded-2xl border border-slate-800 flex items-baseline gap-2 text-right">
             <span className="text-2xl sm:text-3xl font-black font-mono text-red-500 tracking-tight">
               {formattedTimeStr}
@@ -90,6 +130,88 @@ export const MonitorDashboard: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Disconnected Notice Banner if Google Script is not configured on this monitor device */}
+      {(!appsScriptConfig.enabled || !appsScriptConfig.webAppUrl) && (
+        <div className="bg-gradient-to-r from-amber-950/90 via-slate-900 to-amber-950/90 border border-amber-500/50 rounded-2xl p-3 px-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs shadow-xl">
+          <div className="flex items-center gap-2.5">
+            <AlertCircle className="w-5 h-5 text-amber-400 shrink-0" />
+            <div>
+              <p className="font-extrabold text-amber-200">
+                Layar Monitor TV Ini Belum Terhubung ke Database Online Google Sheets!
+              </p>
+              <p className="text-[11px] text-slate-300">
+                Aktivitas panggilan dari Admin HP/Laptop lain tidak akan muncul otomatis sampai URL Web App dimasukkan di perangkat ini atau buka link monitor yang memiliki <code className="bg-black/50 px-1 py-0.5 rounded font-mono text-amber-300">?gas=...</code>.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              setInputUrl(appsScriptConfig.webAppUrl || '');
+              setShowConfigModal(true);
+            }}
+            className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black shrink-0 transition-all shadow-md active:scale-95"
+          >
+            Hubungkan Sekarang
+          </button>
+        </div>
+      )}
+
+      {/* CONFIGURATION MODAL FOR MONITOR SCREEN */}
+      {showConfigModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl max-w-lg w-full p-6 shadow-2xl text-slate-100 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2 font-black text-lg text-white">
+                <LinkIcon className="w-5 h-5 text-amber-400" />
+                <span>Hubungkan Monitor ke Google Script</span>
+              </div>
+              <button
+                onClick={() => setShowConfigModal(false)}
+                className="text-slate-400 hover:text-white font-bold p-1"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Tempelkan URL Web App Google Apps Script dari Google Sheets Anda di bawah ini agar Layar TV Monitor ini terhubung langsung secara online dengan Admin:
+            </p>
+
+            <form onSubmit={handleSaveConfig} className="space-y-4">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                  URL Web App Google Script:
+                </label>
+                <input
+                  type="url"
+                  required
+                  placeholder="https://script.google.com/macros/s/.../exec"
+                  value={inputUrl}
+                  onChange={(e) => setInputUrl(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white text-xs font-mono focus:border-amber-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowConfigModal(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shadow-lg active:scale-95 transition-all"
+                >
+                  Simpan & Hubungkan
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* MAIN CONTENT AREA (LANDSCAPE DOMINANT GRID) */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-4 min-h-0">

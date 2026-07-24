@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useQueue } from '../../context/QueueContext';
 import { Bell, Volume2, Clock, Search, QrCode, Sparkles, CheckCircle2 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { playChimeSound, announceQueueVoice } from '../../utils/audio';
+import { playChimeSound } from '../../utils/audio';
 
 export const CustomerDashboard: React.FC = () => {
   const { tickets, booths, lastCalledTicket, selectedTicketForCustomer, setSelectedTicketForCustomer } = useQueue();
@@ -107,7 +107,7 @@ export const CustomerDashboard: React.FC = () => {
   // Check if customer ticket is CALLED right now!
   const isMyTurn = currentCustomerTicket && currentCustomerTicket.status === 'called';
 
-  // Trigger celebration & voice audio whenever my ticket is called by Admin (or recalled)!
+  // Trigger celebration & chime audio whenever my ticket is called by Admin (or recalled)!
   useEffect(() => {
     if (!currentCustomerTicket) return;
 
@@ -115,7 +115,6 @@ export const CustomerDashboard: React.FC = () => {
     if (isMyTurn && !hasCelebrated) {
       setHasCelebrated(true);
       playChimeSound();
-      announceQueueVoice(currentCustomerTicket.ticketNumber, currentCustomerTicket.boothName);
       try {
         confetti({
           particleCount: 100,
@@ -128,7 +127,7 @@ export const CustomerDashboard: React.FC = () => {
     }
   }, [isMyTurn, currentCustomerTicket, hasCelebrated]);
 
-  // React directly when Admin calls next or calls with voice
+  // React directly when Admin calls next
   useEffect(() => {
     if (!lastCalledTicket || !currentCustomerTicket) return;
 
@@ -138,7 +137,6 @@ export const CustomerDashboard: React.FC = () => {
 
     if (isMatch) {
       playChimeSound();
-      announceQueueVoice(lastCalledTicket.ticketNumber, lastCalledTicket.boothName);
       try {
         confetti({
           particleCount: 100,

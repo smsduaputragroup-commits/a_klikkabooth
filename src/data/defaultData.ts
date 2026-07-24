@@ -385,14 +385,17 @@ function doPost(e) {
 function handleGetQueue(ss) {
   var ticketSheet = getOrCreateSheet(ss, "Tickets");
   var boothSheet = getOrCreateSheet(ss, "Booths");
+  var logSheet = getOrCreateSheet(ss, "Logs");
   
   var tickets = sheetToObjects(ticketSheet);
   var booths = sheetToObjects(boothSheet);
+  var logs = sheetToObjects(logSheet);
   
   return ContentService.createTextOutput(JSON.stringify({
     status: "success",
     booths: booths,
-    tickets: tickets
+    tickets: tickets,
+    logs: logs
   })).setMimeType(ContentService.MimeType.JSON);
 }
 

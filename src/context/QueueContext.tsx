@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { Booth, Ticket, PrintSettings, AppsScriptConfig, ActivityLog, ActiveTab, ActivityAction } from '../types';
 import { DEFAULT_BOOTHS, DEFAULT_PRINT_SETTINGS, DEFAULT_APPS_SCRIPT_CONFIG, INITIAL_TICKETS, INITIAL_LOGS } from '../data/defaultData';
 import { announceQueueVoice } from '../utils/audio';
@@ -125,6 +125,9 @@ export const QueueProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const [isPrintModalOpen, setIsPrintModalOpen] = useState<boolean>(false);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
 
+  // Ref to prevent polling from overwriting recent local updates (race condition prevention)
+  const lastMutationTimeRef = useRef<number>(0);
+
   // Broadcast Channel & Storage listener for multi-tab sync
   const [broadcastChannel, setBroadcastChannel] = useState<BroadcastChannel | null>(null);
 
@@ -170,12 +173,23 @@ export const QueueProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     return () => clearInterval(interval);
   }, []);
 
-  // Periodic Google Apps Script remote polling (every 3 seconds if enabled)
+  // Periodic Google Apps Script remote polling (every 1.2 seconds if enabled)
   useEffect(() => {
     if (!appsScriptConfig.enabled || !appsScriptConfig.webAppUrl) return;
 
     const pollAppsScript = async () => {
+      // Do not overwrite local state if a local action occurred within the last 1.5 seconds
+      if (Date.now() - lastMutationTimeRef.current < 1500) {
+        return;
+      }
+
       const res = await fetchFromGoogleAppsScript(appsScriptConfig);
+
+      // Re-check mutation lock after async fetch completes
+      if (Date.now() - lastMutationTimeRef.current < 1500) {
+        return;
+      }
+
       if (res.success) {
         if (Array.isArray(res.tickets)) {
           setTickets((prev) => {
@@ -185,16 +199,48 @@ export const QueueProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             }
             return prev;
           });
-          if (res.tickets.length === 0) {
-            setLastCalledTicket(null);
-            localStorage.removeItem('photobooth_last_called_ticket');
+
+          // Sync lastCalledTicket from remote tickets
+          const calledTickets = res.tickets.filter((t) => t.status === 'called');
+          if (calledTickets.length > 0) {
+            // Get the most recently called ticket
+            const latestCalled = [...calledTickets].sort((a, b) => {
+              const timeA = a.calledAt ? new Date(a.calledAt).getTime() : 0;
+              const timeB = b.calledAt ? new Date(b.calledAt).getTime() : 0;
+              return timeB - timeA;
+            })[0];
+
+            setLastCalledTicket((prevLast) => {
+              if (!prevLast || prevLast.id !== latestCalled.id || prevLast.calledAt !== latestCalled.calledAt) {
+                localStorage.setItem('photobooth_last_called_ticket', JSON.stringify(latestCalled));
+                if (soundEnabled) {
+                  announceQueueVoice(latestCalled.ticketNumber, latestCalled.boothName);
+                }
+                return latestCalled;
+              }
+              return prevLast;
+            });
+          } else {
+            if (res.tickets.length === 0 || !res.tickets.some((t) => t.status === 'called')) {
+              setLastCalledTicket(null);
+              localStorage.removeItem('photobooth_last_called_ticket');
+            }
           }
         }
-        if (Array.isArray(res.booths) && res.booths.length > 0) {
+        if (Array.isArray(res.booths)) {
           setBooths((prev) => {
             if (JSON.stringify(prev) !== JSON.stringify(res.booths)) {
               localStorage.setItem(LOCAL_STORAGE_KEY_BOOTHS, JSON.stringify(res.booths));
               return res.booths;
+            }
+            return prev;
+          });
+        }
+        if (Array.isArray(res.logs)) {
+          setLogs((prev) => {
+            if (JSON.stringify(prev) !== JSON.stringify(res.logs)) {
+              localStorage.setItem(LOCAL_STORAGE_KEY_LOGS, JSON.stringify(res.logs));
+              return res.logs;
             }
             return prev;
           });
@@ -205,7 +251,7 @@ export const QueueProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     // Initial fetch on mount / enable
     pollAppsScript();
 
-    const interval = setInterval(pollAppsScript, 3000);
+    const interval = setInterval(pollAppsScript, 1200);
     return () => clearInterval(interval);
   }, [appsScriptConfig]);
 
@@ -284,7 +330,7 @@ export const QueueProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       if (gasParam) {
         try {
           const decodedUrl = decodeURIComponent(gasParam);
-          if (decodedUrl && decodedUrl.startsWith('http') && decodedUrl !== appsScriptConfig.webAppUrl) {
+          if (decodedUrl && decodedUrl.startsWith('http')) {
             const newConfig: AppsScriptConfig = {
               enabled: true,
               autoSync: true,
@@ -293,6 +339,15 @@ export const QueueProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             };
             setAppsScriptConfig(newConfig);
             localStorage.setItem(LOCAL_STORAGE_KEY_SCRIPT, JSON.stringify(newConfig));
+
+            // Immediate fetch on mobile when opened via QR code / URL parameter
+            fetchFromGoogleAppsScript(newConfig).then((res) => {
+              if (res.success) {
+                if (Array.isArray(res.tickets)) setTickets(res.tickets);
+                if (Array.isArray(res.booths)) setBooths(res.booths);
+                if (Array.isArray(res.logs)) setLogs(res.logs);
+              }
+            });
           }
         } catch (e) {
           console.error('Failed to parse gas param from URL:', e);
@@ -362,6 +417,7 @@ export const QueueProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       newLogs: ActivityLog[],
       calledTicket?: Ticket | null
     ) => {
+      lastMutationTimeRef.current = Date.now();
       const activeLastCalled = calledTicket !== undefined ? calledTicket : lastCalledTicket;
       localStorage.setItem(LOCAL_STORAGE_KEY_BOOTHS, JSON.stringify(newBooths));
       localStorage.setItem(LOCAL_STORAGE_KEY_TICKETS, JSON.stringify(newTickets));
@@ -389,9 +445,13 @@ export const QueueProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       }
 
       if (newScript.enabled && newScript.autoSync && newScript.webAppUrl) {
-        syncToGoogleAppsScript(newScript, newBooths, newTickets, newLogs).catch((err) => {
-          console.error('Auto sync to Google Apps Script failed:', err);
-        });
+        syncToGoogleAppsScript(newScript, newBooths, newTickets, newLogs)
+          .then(() => {
+            lastMutationTimeRef.current = Date.now();
+          })
+          .catch((err) => {
+            console.error('Auto sync to Google Apps Script failed:', err);
+          });
       }
     },
     [broadcastChannel, lastCalledTicket]
@@ -419,8 +479,10 @@ export const QueueProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const triggerSyncToGoogleSheets = useCallback(async () => {
     if (!appsScriptConfig.enabled || !appsScriptConfig.webAppUrl) return;
 
+    lastMutationTimeRef.current = Date.now();
     setAppsScriptConfig((prev) => ({ ...prev, syncStatus: 'syncing', errorMessage: undefined }));
     const result = await syncToGoogleAppsScript(appsScriptConfig, booths, tickets, logs);
+    lastMutationTimeRef.current = Date.now();
 
     const nowStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
     if (result.success) {
@@ -749,16 +811,27 @@ export const QueueProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   );
 
   const clearTodayLogs = useCallback(() => {
+    lastMutationTimeRef.current = Date.now();
     setLogs([]);
     saveAndBroadcast(booths, tickets, printSettings, appsScriptConfig, []);
   }, [booths, tickets, printSettings, appsScriptConfig, saveAndBroadcast]);
 
   const resetQueue = useCallback(() => {
+    lastMutationTimeRef.current = Date.now();
     const resetBooths = booths.map((b) => ({ ...b, currentNumber: 0, totalTickets: 0 }));
-    const updatedLogs = addLog('RESET_QUEUE', 'Mereset ulang antrian hari ini ke 0');
+    const resetLogs: ActivityLog[] = [
+      {
+        id: `log-${Date.now()}`,
+        timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        date: new Date().toLocaleDateString('id-ID'),
+        action: 'RESET_QUEUE',
+        details: 'Mereset ulang antrian hari ini ke 0',
+      },
+    ];
 
     setBooths(resetBooths);
     setTickets([]);
+    setLogs(resetLogs);
     setLastCalledTicket(null);
     setSelectedTicketForCustomer(null);
     try {
@@ -766,8 +839,8 @@ export const QueueProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     } catch (err) {
       console.error(err);
     }
-    saveAndBroadcast(resetBooths, [], printSettings, appsScriptConfig, updatedLogs, null);
-  }, [booths, addLog, saveAndBroadcast, printSettings, appsScriptConfig]);
+    saveAndBroadcast(resetBooths, [], printSettings, appsScriptConfig, resetLogs, null);
+  }, [booths, saveAndBroadcast, printSettings, appsScriptConfig]);
 
   const setActiveTab = useCallback((tab: ActiveTab) => {
     setActiveTabState(tab);
